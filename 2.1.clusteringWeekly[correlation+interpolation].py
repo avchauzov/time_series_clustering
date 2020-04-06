@@ -123,7 +123,20 @@ for ewmParameter in [0.25, 0.125]:
 		Path(folderName).mkdir(parents = True, exist_ok = True)
 		
 		trajectories = deepcopy(trajectoriesSetProcessed)
+		trajectoriesValues = np.array([value[0] for value in list(trajectories.values())])
+		trajectoriesKeys = list(trajectoriesSetProcessed.keys())
+		
+		dm, _ = spearmanr(trajectoriesValues, axis = 1)
+		dm = -dm + 1
+		
 		distanceMatrixDictionary = {}
+		for index1, filter1 in enumerate(trajectoriesKeys):
+			for index2, filter2 in enumerate(trajectoriesKeys):
+				unionFilter = filter1 + filter2
+				sorted(unionFilter)
+				
+				if unionFilter not in distanceMatrixDictionary.keys():
+					distanceMatrixDictionary[unionFilter] = dm[index1][index2]
 		
 		iteration = 1
 		while True:

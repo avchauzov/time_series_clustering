@@ -1,13 +1,10 @@
 # %%
 
 
-import random
 from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from scipy import interpolate
 from scipy.stats import spearmanr
 from sklearn.preprocessing import robust_scale
@@ -103,7 +100,7 @@ for key, value in trajectoriesSet.items():
 	value = value[0]
 	
 	if len(value) == maxLength:
-		trajectoriesSetProcessed[(key,)] = [value]
+		trajectoriesSetProcessed[key] = np.array(value).reshape(1, len(value))
 		continue
 	
 	oldScale = np.arange(0, maxLength, maxLength / len(value))
@@ -129,7 +126,7 @@ for key, value in trajectoriesSet.items():
 		except:
 			cutOff += 1
 	
-	trajectoriesSetProcessed[(key,)] = [value]
+	trajectoriesSetProcessed[key] = np.array(value).reshape(1, len(value))
 
 # %%
 
@@ -147,7 +144,11 @@ dm = -dm + 1
 distanceMatrixDictionary = {}
 for index1, filter1 in enumerate(trajectoriesKeys):
 	for index2, filter2 in enumerate(trajectoriesKeys):
-		unionFilter = filter1 + filter2
+		
+		if index1 >= index2:
+			continue
+		
+		unionFilter = tuple([filter1, filter2])
 		sorted(unionFilter)
 		
 		if unionFilter not in distanceMatrixDictionary.keys():
@@ -155,81 +156,85 @@ for index1, filter1 in enumerate(trajectoriesKeys):
 
 # %%
 
-THRESHOLD = 0.10
+THRESHOLD = 0.75
 
 iteration = 1
 while True:
-	distanceMatrix = np.empty((len(trajectories), len(trajectories),))
-	distanceMatrix[:] = np.nan
+	indicesDictionary = {value: index for index, value in enumerate(trajectories.keys())}
 	
+	seen = []
 	for index1, (filter1, trajectory1) in enumerate(trajectories.items()):
 		tempArray = []
 		
 		for index2, (filter2, trajectory2) in enumerate(trajectories.items()):
 			
-			if index1 > index2:
-				continue
-			
-			elif index1 == index2:
+			if index1 >= index2:
 				continue
 			
 			else:
-				unionFilter = filter1 + filter2
-				sorted(unionFilter)
+				
+				if sorted([indicesDictionary.get(filter1), indicesDictionary.get(filter2)]) in seen:
+					continue
+				
+				seen.append(sorted([indicesDictionary.get(filter1), indicesDictionary.get(filter2)]))
+				
+				unionFilter = tuple([filter1, filter2])
 				
 				if unionFilter in distanceMatrixDictionary.keys():
-					distanceMatrix[index1][index2] = distanceMatrixDictionary.get(unionFilter)
-					
 					continue
 				
 				metric = []
+				
 				for subItem1 in trajectory1:
-					length1 = len(subItem1)
 					
 					for subItem2 in trajectory2:
-						metric.append(-spearmanr(subItem1, subItem2)[0] + 1)
+						
+						try:
+							metric.append(-spearmanr(subItem1, subItem2)[0] + 1)
+						
+						except:
+							print(123)
 				
 				metric = max(metric)
-				
-				distanceMatrix[index1][index2] = metric
+				distanceMatrixDictionary[unionFilter] = metric
 	
-	minValue = np.nanmin(distanceMatrix.flatten())
-	
+	minValue = np.nanmin(list(distanceMatrixDictionary.values()))
 	print(minValue)
 	
 	if minValue > THRESHOLD:
 		print(minValue, THRESHOLD)
 		break
 	
-	minIndices = np.where(distanceMatrix == minValue)
-	minIndices = list(zip(minIndices[0], minIndices[1]))
+	minIndices = [key for key, value in distanceMatrixDictionary.items() if value == minValue]
 	
-	minIndex = minIndices[0]
-	
-	filter1 = list(trajectories.keys())[minIndex[0]]
-	filter2 = list(trajectories.keys())[minIndex[1]]
-	
-	trajectory1 = trajectories.get(filter1)
-	trajectory2 = trajectories.get(filter2)
-	
-	unionFilter = filter1 + filter2
-	sorted(unionFilter)
-	
-	trajectoryGroup = trajectory1 + trajectory2
-	
-	trajectories = {key: value for key, value in trajectories.items()
-	                if all(value not in unionFilter for value in key)}
-	
-	distanceMatrixDictionary = {key: value for key, value in distanceMatrixDictionary.items()
-	                            if all(value not in unionFilter for value in key)}
-	
-	trajectories[unionFilter] = trajectoryGroup
+	for minIndex in minIndices:
+		
+		if any(value not in trajectories.keys() for value in minIndex):
+			trajectories = {key: value for key, value in trajectories.items() if key not in minIndex}
+			distanceMatrixDictionary = {key: value for key, value in distanceMatrixDictionary.items()
+			                            if all(value in trajectories.keys() for value in key)}
+			
+			continue
+		
+		trajectoryGroup = np.concatenate([trajectories.get(value) for value in minIndex])
+		print(minIndex, trajectoryGroup.shape)
+		
+		trajectories = {key: value for key, value in trajectories.items() if key not in minIndex}
+		
+		trajectories[minIndex] = trajectoryGroup
+		
+		distanceMatrixDictionary = {key: value for key, value in distanceMatrixDictionary.items()
+		                            if all(value in trajectories.keys() for value in key)}
 	
 	print(iteration, 'finished!')
 	iteration += 1
 	
 	if len(list(trajectories.keys())) == 1:
 		break
+
+import sys
+
+sys.exit(0)
 
 # %%
 
