@@ -1,6 +1,5 @@
 # %%
 
-import collections
 import random
 from copy import deepcopy
 from pathlib import Path
@@ -10,22 +9,11 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy import interpolate
-from scipy.stats import pearsonr
+from scipy.stats import spearmanr
 from sklearn.preprocessing import robust_scale
 
-
-def flattenListOfTuples(_list):
-	for item in _list:
-		
-		if isinstance(item, collections.Iterable) and not isinstance(item, (str, bytes)):
-			yield from flattenListOfTuples(item)
-		
-		else:
-			yield item
-
-
 data = pd.read_csv('data/1.data.csv', index_col = 0)
-# data = data[list(data)[: 33]]
+# data = data[list(data)[: 100]]
 
 tempDictionary = {}
 for column in list(data):
@@ -46,7 +34,7 @@ for key, value in tempDictionary.items():
 		print(len(value), value)
 		
 		value = [item for subValue in value for item in subValue]
-		data['|'.join(sorted(list(set(value))))] = [float(value) for value in key]
+		data['&'.join(sorted(list(set(value))))] = [float(value) for value in key]
 		
 		print(data.values.shape)
 
@@ -62,7 +50,7 @@ data.drop(columnsToDelete, axis = 1, inplace = True)
 
 Path('output/').mkdir(parents = True, exist_ok = True)
 
-for ewmParameter in [0.125, 0.25, 0.50]:
+for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
 	trajectoriesSet, trajectoriesSmoothOriginal, trajectoriesRaw = {}, {}, {}
 	for column in list(data):
 		
@@ -125,98 +113,53 @@ for ewmParameter in [0.125, 0.25, 0.50]:
 		
 		trajectoriesSetProcessed[key] = np.array(value).reshape(1, len(value))
 	
-	for thresholdParameter in [0.25, 0.50]:
+	for thresholdParameter in [0.25, 0.50, 0.75]:
 		folderName = 'output/ewm[' + str(ewmParameter) + ']_threshold[' + str(thresholdParameter) + ']/'
 		Path(folderName).mkdir(parents = True, exist_ok = True)
 		
 		trajectories = deepcopy(trajectoriesSetProcessed)
 		trajectoriesValues = np.array([value[0] for value in list(trajectories.values())])
-		trajectoriesKeys = list(trajectoriesSetProcessed.keys())
+		trajectoriesKeys = list(trajectories.keys())
 		
-		dm = np.corrcoef(trajectoriesValues)
+		dm, _ = spearmanr(trajectoriesValues, axis = 1)
 		dm = -dm + 1
 		
-		print(dm.shape)
-		
-		distanceMatrixDictionary = {}
-		for index1, filter1 in enumerate(trajectoriesKeys):
-			for index2, filter2 in enumerate(trajectoriesKeys):
-				
-				if index1 >= index2:
-					continue
-				
-				unionFilter = tuple([filter1, filter2])
-				sorted(unionFilter)
-				
-				if unionFilter not in distanceMatrixDictionary.keys():
-					distanceMatrixDictionary[unionFilter] = dm[index1][index2]
+		np.fill_diagonal(dm, np.nan)
 		
 		iteration = 1
 		while True:
-			indicesDictionary = {value: index for index, value in enumerate(trajectories.keys())}
+			indicesDictionary = {index: value for index, value in enumerate(trajectories.keys())}
 			
-			seen = []
-			for index1, (filter1, trajectory1) in enumerate(trajectories.items()):
-				tempArray = []
-				
-				for index2, (filter2, trajectory2) in enumerate(trajectories.items()):
-					
-					if index1 >= index2:
-						continue
-					
-					else:
-						
-						if sorted([indicesDictionary.get(filter1), indicesDictionary.get(filter2)]) in seen:
-							continue
-						
-						seen.append(sorted([indicesDictionary.get(filter1), indicesDictionary.get(filter2)]))
-						
-						unionFilter = tuple([filter1, filter2])
-						
-						if unionFilter in distanceMatrixDictionary.keys():
-							continue
-						
-						metric = []
-						for subItem1 in trajectory1:
-							
-							for subItem2 in trajectory2:
-								
-								try:
-									metric.append(-pearsonr(subItem1, subItem2)[0] + 1)
-								
-								except:
-									print(123)
-						
-						metric = max(metric)
-						distanceMatrixDictionary[unionFilter] = metric
-			
-			minValue = np.nanmin(list(distanceMatrixDictionary.values()))
-			print(minValue)
+			minValue = np.nanmin(dm)
 			
 			if minValue > thresholdParameter:
 				print(minValue, thresholdParameter)
 				break
 			
-			minIndices = [key for key, value in distanceMatrixDictionary.items() if value == minValue]
+			indices = np.where(dm == minValue)
+			indices = list(list(zip(indices[0], indices[1]))[0])
 			
-			for minIndex in minIndices:
-				
-				if any(value not in trajectories.keys() for value in minIndex):
-					trajectories = {key: value for key, value in trajectories.items() if key not in minIndex}
-					distanceMatrixDictionary = {key: value for key, value in distanceMatrixDictionary.items()
-					                            if all(value in trajectories.keys() for value in key)}
-					
-					continue
-				
-				trajectoryGroup = np.concatenate([trajectories.get(value) for value in minIndex])
-				print(minIndex, trajectoryGroup.shape)
-				
-				trajectories = {key: value for key, value in trajectories.items() if key not in minIndex}
-				
-				trajectories[minIndex] = trajectoryGroup
-				
-				distanceMatrixDictionary = {key: value for key, value in distanceMatrixDictionary.items()
-				                            if all(value in trajectories.keys() for value in key)}
+			indicesFilter = sorted(list(set([indicesDictionary.get(value) for value in indices])))
+			
+			trajectoryGroup = np.concatenate([trajectories.get(value) for value in indicesFilter])
+			print(indicesFilter, trajectoryGroup.shape)
+			
+			row1 = dm[indices[0], :]
+			row2 = dm[indices[1], :]
+			rowToAdd = np.nanmax([row1, row2], axis = 0)
+			
+			trajectories['|'.join(indicesFilter)] = trajectoryGroup
+			
+			insertIndex = list(trajectories.keys()).index('|'.join(indicesFilter))
+			
+			dm = np.insert(dm, insertIndex, rowToAdd, 0)
+			rowToAdd = np.append(rowToAdd, np.nan)
+			dm = np.insert(dm, insertIndex, rowToAdd, 1)
+			
+			dm = np.delete(dm, indices, axis = 0)
+			dm = np.delete(dm, indices, axis = 1)
+			
+			trajectories = {key: value for key, value in trajectories.items() if key not in indicesFilter}
 			
 			print(iteration, 'finished!')
 			iteration += 1
@@ -224,26 +167,11 @@ for ewmParameter in [0.125, 0.25, 0.50]:
 			if len(list(trajectories.keys())) == 1:
 				break
 		
-		trajectoriesCopy = deepcopy(trajectories)
-		trajectories = {}
-		
-		for key, value in trajectoriesCopy.items():
-			
-			if not isinstance(key, str):
-				keyFlatten = list(flattenListOfTuples(key))
-				keyFlatten = sorted(list(set(keyFlatten)))
-				
-				print(key, len(value))
-				
-				trajectories[tuple(keyFlatten)] = value
-			
-			else:
-				trajectories[(key,)] = value
-		
 		clusterNames = sorted(list(set(trajectories.keys())))
 		
 		nameColumn, idColumn = [], []
 		for clusterIndex, clusterName in enumerate(clusterNames):
+			clusterName = clusterName.split('|')
 			
 			if len(clusterName) == 1:
 				continue
@@ -258,6 +186,7 @@ for ewmParameter in [0.125, 0.25, 0.50]:
 		resultDF.to_csv(folderName + 'results.csv')
 		
 		for clusterIndex, clusterName in enumerate(clusterNames):
+			clusterName = clusterName.split('|')
 			
 			if len(clusterName) == 1:
 				continue
