@@ -50,7 +50,8 @@ data.drop(columnsToDelete, axis = 1, inplace = True)
 
 Path('output/').mkdir(parents = True, exist_ok = True)
 
-for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
+ewmParameterColumn, thresholdParameterColumn, coveringRateColumn, averageScoreColumn, averageSizeColumn = [], [], [], [], []
+for ewmParameter in [0.125, 0.25, 0.50, 1, 2, 3]:
 	trajectoriesSet, trajectoriesSmoothOriginal, trajectoriesRaw = {}, {}, {}
 	for column in list(data):
 		
@@ -113,7 +114,7 @@ for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
 		
 		trajectoriesSetProcessed[key] = np.array(value).reshape(1, len(value))
 	
-	for thresholdParameter in [0.25, 0.50, 0.75]:
+	for thresholdParameter in [0.125, 0.25, 0.50, 0.75]:
 		folderName = 'output/ewm[' + str(ewmParameter) + ']_threshold[' + str(thresholdParameter) + ']/'
 		Path(folderName).mkdir(parents = True, exist_ok = True)
 		
@@ -185,11 +186,15 @@ for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
 		
 		resultDF.to_csv(folderName + 'results.csv')
 		
+		coveringRate, averageScore, averageSize = 0, [], []
 		for clusterIndex, clusterName in enumerate(clusterNames):
 			clusterName = clusterName.split('|')
 			
 			if len(clusterName) == 1:
+				coveringRate += 1
 				continue
+			
+			averageSize.append(len(clusterName))
 			
 			figure = make_subplots(rows = 3, cols = 1)
 			colors = ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(len(clusterName))]
@@ -197,6 +202,12 @@ for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
 			value = []
 			for subKey in clusterName:
 				value.append(np.squeeze(trajectoriesSetProcessed.get(subKey)))
+			
+			valueGroup = np.array(value)
+			valueGroup = np.std(valueGroup, axis = 0)
+			valueGroup = np.mean(valueGroup)
+			
+			averageScore.append(valueGroup)
 			
 			for index, subValue in enumerate(value):
 				figure.add_trace(go.Scatter(x = list(range(0, len(subValue))), y = subValue,
@@ -224,3 +235,22 @@ for ewmParameter in [0.125, 0.25, 0.50, 0.75, 1, 2, 3]:
 			
 			figure.update_layout(title = 'Cluster ' + str(clusterIndex + 1), showlegend = False, height = 1200, width = 1200)
 			figure.write_image(folderName + 'cluster_' + str(clusterIndex + 1) + '.png')
+		
+		coveringRate = 1 - coveringRate / len(trajectoriesKeys)
+		
+		coveringRateColumn.append(coveringRate)
+		averageScoreColumn.append(np.nanmean(averageScore))
+		averageSizeColumn.append(np.nanmean(averageSize))
+		
+		ewmParameterColumn.append(ewmParameter)
+		thresholdParameterColumn.append(thresholdParameter)
+
+resultDF = pd.DataFrame()
+resultDF['ewmParameter'] = ewmParameterColumn
+resultDF['thresholdParameter'] = thresholdParameterColumn
+
+resultDF['coveringRate'] = coveringRateColumn
+resultDF['averageScore'] = averageScoreColumn
+resultDF['averageSize'] = averageSizeColumn
+
+resultDF.to_csv('output/results.csv')
