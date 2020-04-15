@@ -48,7 +48,7 @@ for column in list(data):
 print(len(columnsToDelete))
 data.drop(columnsToDelete, axis = 1, inplace = True)
 
-Path('outputWeekly/').mkdir(parents = True, exist_ok = True)
+Path('outputDaily/').mkdir(parents = True, exist_ok = True)
 
 ewmParameterColumn, thresholdParameterColumn, coveringRateColumn, averageScoreColumn, averageSizeColumn = [], [], [], [], []
 for ewmParameter in [0.125, 0.25, 0.50, 1, 2, 3]:
@@ -65,7 +65,7 @@ for ewmParameter in [0.125, 0.25, 0.50, 1, 2, 3]:
 		
 		tempDF.index = pd.to_datetime(tempDF.index, yearfirst = True)
 		
-		tempDF = tempDF.resample('W').agg(np.nansum)
+		tempDF = tempDF.resample('D').agg(np.nansum)
 		tempDF.replace(0, np.nan, inplace = True)
 		
 		firstIndex = tempDF.first_valid_index()
@@ -115,7 +115,7 @@ for ewmParameter in [0.125, 0.25, 0.50, 1, 2, 3]:
 		trajectoriesSetProcessed[key] = np.array(value).reshape(1, len(value))
 	
 	for thresholdParameter in [0.125, 0.25, 0.50, 0.75]:
-		folderName = 'outputWeekly/ewm[' + str(ewmParameter) + ']_threshold[' + str(thresholdParameter) + ']/'
+		folderName = 'outputDaily/ewm[' + str(ewmParameter) + ']_threshold[' + str(thresholdParameter) + ']/'
 		Path(folderName).mkdir(parents = True, exist_ok = True)
 		
 		trajectories = deepcopy(trajectoriesSetProcessed)
@@ -253,4 +253,4 @@ resultDF['coveringRate'] = coveringRateColumn
 resultDF['averageScore'] = averageScoreColumn
 resultDF['averageSize'] = averageSizeColumn
 
-resultDF.to_csv('outputWeekly/results.csv')
+resultDF.to_csv('outputDaily/results.csv')
