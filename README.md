@@ -14,7 +14,7 @@ Our goal:
 ### 1.dataReading.ipynb
 
 ## Main algorithm
-### 2.1.clusteringWeekly.ipynb
+### 2.2.clusteringWeekly.py
 File contains several steps:
 1. We work on duplicated (union by '&') and really bad columns (that have only single value)
 2. Exponential smoothing algorithm (our data is very sparse)
@@ -26,6 +26,10 @@ File contains several steps:
 As a result, we get:
  - *.csv file with column names union in groups for the same cluster (results.csv)
  - 3 pictures for each cluster (that contain more than 1 column): smoothed and interpolated TS, smoothed TS, original data
+ - several outputs for different hyperparameters
 
-### 2.2.clusteringWeekly.py
-Same as above but allow us to check various hyperparameters combinations and save results.
+### 2.3.clusteringDaily.py
+Same for daily data.
+
+### 3.1.hyperParametersSelection.ipynb
+Visual outputs for optimal hyperparameters selection.
