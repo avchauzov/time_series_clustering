@@ -1,10 +1,6 @@
 # FMCG Selling Volumes Trajectories Clustering
 Our goal:
  - to build the model that can efficiently cluster trajectories
- 
-## TODO
- - add cluster ensembling
- - add metrics
 
 ## Project plan
 1. Data processing and initial cleaning
