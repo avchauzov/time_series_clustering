@@ -4,7 +4,7 @@
 This project provides a set of Python functions for time series clustering and merging. It includes capabilities for flattening nested lists, computing distance matrices using Dynamic Time Warping (DTW) and Spearman correlation, and merging time series based on these computed distances or correlations.
 
 ## Notes
-1. **Example Usage**: For comprehensive examples and usage scenarios, refer to the [test.ipynb](https://github.com/avchauzov/time_series_clustering/test.ipynb) notebook included in this repository.
+1. **Example Usage**: For comprehensive examples and usage scenarios, refer to the [test.ipynb](https://github.com/avchauzov/time_series_clustering/blob/master/test.ipynb) notebook included in this repository.
 2. **Tunability and Adaptability**:
 - _Scaling Variations_: The scaling method can be tailored to a more robust variant, accommodating a wider range of datasets.
 - _Compression of Complex Series_: In cases involving long and complex time series, a compression/simplification approach may be preferable. This strategy has been effectively utilized in production settings, yielding notable results. 
