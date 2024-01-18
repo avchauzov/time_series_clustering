@@ -84,7 +84,7 @@ Contributions are welcome. Please fork the repository, make your changes, and su
 ## Contact
 
 - **Name:** Andrew Chauzov
-- **Email:** [avchauzov@gmail.com](mailt:avchauzov@gmail.com)
+- **Email:** [avchauzov@gmail.com](mailto:avchauzov@gmail.com)
 
 For more information or inquiries about the project, feel free to reach out via email.
 
